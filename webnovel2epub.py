@@ -9,6 +9,7 @@ import re
 import time
 import urllib.request
 from PIL import Image
+from lxml import html
 from ebooklib import epub
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
@@ -173,7 +174,9 @@ def get_novel_data(driver, novel_website, chapter_num_start, chapter_num_end):
 
     Args:
         driver (selenium.webdriver): driver used to get web data
-        website (str): URL to a novel on webnovel.com
+        novel_website (str): URL to a novel on webnovel.com
+        chapter_num_start (int): starting chapter number
+        chapter_num_end (int): ending chapter number
 
     Returns:
         Tuple of (synopsis, author, translator, editor, chapter_list) for the
@@ -297,8 +300,33 @@ def generate_epub(epub_file, novel_title, cover, author, editor, translator,
     # create chapter items and add them to the book
     chapter_num_start = chapter_data_list[0][1]
     chapter_list = []
+    utf8_parser = html.HTMLParser(encoding='utf-8')
     for title, num, content in chapter_data_list:
-        title_clean = title.strip()
+        title_clean = title.strip().replace('\n', ' ')
+        m = re.match(r'^{}\s+(.*)'.format(num), title_clean)
+        if m:
+            title_clean = m.group(1)
+        
+        regen_html = False
+        html_tree = html.document_fromstring(content, parser=utf8_parser)
+        html_root = html_tree.getroottree()
+        title_tag = html_root.find('body').getchildren()[0]
+        if title_tag.tag not in ['h1', 'h2', 'h3', 'h4']:
+            content = '<h1>{}</h1>'.format(title_clean) + content
+        elif title_tag.tag in ['h1', 'h2', 'h3', 'h4']:
+            title_tag.tag = 'h1'
+            title_tag.text = title_clean
+            regen_html = True
+            
+
+        for p in html_root.xpath('/html/body/p[position()<4]'):
+            if p.text and re.match(r'^[Cc]hapter\s+{}\s+-\s+{}'.format(num, title_clean), p.text):
+                p.getparent().remove(p)
+                regen_html = True
+                break
+        if regen_html:
+            content = html.tostring(html_tree, pretty_print=True)            
+
         chapter = epub.EpubHtml(
             title=title_clean,
             file_name=os.path.join('chapters', '{:04}.xhtml'.format(num)),
@@ -554,8 +582,8 @@ def _main():
         print('13. War & Military')
 
         base_url = 'https://www.webnovel.com/category/list?category='
-        website = None
-        while website is None:
+        category_website = None
+        while category_website is None:
             x = int(input('Select a category (Enter Number): '))
             if x == 1:
                 category_website = novel_categories['competitive-sports']
