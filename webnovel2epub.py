@@ -222,9 +222,14 @@ def get_novel_data(driver, novel_website, chapter_num_start, chapter_num_end):
 
     chapter_list_raw = driver.find_elements_by_xpath(
         '//div[@class="volume-item"]/ol/li/a')
-    if chapter_num_start and chapter_num_end > 0:
-        chapter_list_raw = chapter_list_raw[chapter_num_start -
-                                            1:chapter_num_end]
+    if chapter_num_start:
+        if chapter_num_end is None:
+            chapter_list_raw = chapter_list_raw[chapter_num_start - 1:]
+        else:
+            chapter_list_raw = chapter_list_raw[chapter_num_start -
+                                                1:chapter_num_end]
+    elif chapter_nunm_end:
+        chapter_list_raw = chapter_list_raw[:chapter_num_end]
 
     chapter_list = []
     for element in tqdm.tqdm(
@@ -640,15 +645,14 @@ def _main():
         chapter_num_start = int(input("What's the starting chapter number?: "))
         chapter_num_end = int(input("What's the ending chapter number?: "))
 
-    if chapter_num_end < 0:
-        chapter_num_end = len(chapter_list_raw)
+    if chapter_num_end is None or chapter_num_end < 0:
+        chapter_num_end = chapter_num_start + len(chapter_list_raw) - 1
 
     chapter_num_list = list(range(chapter_num_start, chapter_num_end + 1))
     if len(chapter_num_list) > len(chapter_list_raw):
         # In this case, we did not filter the chapter list in get_novel_data(),
         # so we need to do it here
-        chapter_list_raw = chapter_list_raw[chapter_num_start -
-                                            1:chapter_num_end]
+        chapter_list_raw = chapter_list_raw[:chapter_num_end-chapter_num_start]
     assert len(chapter_num_list) == len(chapter_list_raw)
 
     chapter_data_list = []
