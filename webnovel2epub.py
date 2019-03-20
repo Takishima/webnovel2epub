@@ -2,11 +2,13 @@
 
 import argparse
 import base64
-import time
+import io
 import math
 import os
 import re
+import time
 import urllib.request
+from PIL import Image
 from ebooklib import epub
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
@@ -289,7 +291,8 @@ def generate_epub(epub_file, novel_title, cover, author, editor, translator,
     # add cover image
     cover_name, cover_data = cover
     if cover_data is not None:
-        book.set_cover(cover_name, cover_data)
+        # The titlepage will serve as cover
+        book.set_cover(cover_name, cover_data, create_page=False)
 
     # create chapter items and add them to the book
     chapter_num_start = chapter_data_list[0][1]
@@ -299,10 +302,39 @@ def generate_epub(epub_file, novel_title, cover, author, editor, translator,
         chapter = epub.EpubHtml(
             title=title_clean,
             file_name=os.path.join('chapters', '{:04}.xhtml'.format(num)),
-            content='<h1>{}</h1>'.format(title_clean) + content,
+            content=content,
             lang='hr')
         chapter_list.append(chapter)
         book.add_item(chapter)
+
+    titlepage_content = '''<?xml version='1.0' encoding='utf-8'?>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+        <title>Cover</title>
+        <style type="text/css" title="override_css">
+            @page {{padding: 0pt; margin:0pt}}
+            body {{ text-align: center; padding:0pt; margin: 0pt; }}
+        </style>
+    </head>
+    <body>
+        <div>
+            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="100%" height="100%" viewBox="0 0 {0} {1}" preserveAspectRatio="none">
+                <image width="{0}" height="{1}" xlink:href="{2}"/>
+            </svg>
+        </div>
+    </body>
+</html>
+'''
+    cover_width, cover_height = Image.open(io.BytesIO(cover_data)).size
+    titlepage = epub.EpubLiteralXHtml(title='Cover Image',
+                                      uid='titlepage',
+                                      file_name='titlepage.xhtml',
+                                      content=titlepage_content.format(
+                                          cover_width,
+                                          cover_height,
+                                          cover_name).encode('utf-8'))
+    book.add_item(titlepage)
 
     # create sections for every 100 chapters
     volume_incr = 100
@@ -365,10 +397,19 @@ nav[epub|type~='toc'] > ol > li > ol > li {
     book.add_item(nav_css)
 
     # create spin, add cover page as first page
-    book.spine = ['cover', 'nav', *chapter_list]
+    book.spine = [titlepage, 'nav', *chapter_list]
+    book.guide = [{'href': 'titlepage.xhtml',
+                   'title': 'Cover',
+                   'type': 'cover'},
+                  {'href': 'nav.xhtml',
+                   'title': 'Table of Contents',
+                   'type': 'toc'},
+                  {'href': chapter_list[0].file_name,
+                   'title': 'Start of Content',
+                   'type': 'bodymatter'}]
 
     # create epub file
-    epub.write_epub(epub_file, book, {})
+    epub.write_epub(epub_file, book, {'epub2_guide': False})
 
 
 # ==============================================================================
