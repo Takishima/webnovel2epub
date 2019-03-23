@@ -53,8 +53,9 @@ def extract_book_chapters(book):
 
     num_pattern = re.compile(r'([0-9]+)\.xhtml$')
 
-    # Assuming that the first item from the TOC is the title so ignoring it
-    toc.pop()
+    if isinstance(toc[-1], ebooklib.epub.Link):
+        # Assuming that the first item from the TOC is the title so ignoring it
+        toc.pop()
     chapter_list = []
     while toc:
         if isinstance(toc[-1], ebooklib.epub.Link):

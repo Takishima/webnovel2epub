@@ -11,9 +11,8 @@ import urllib.request
 from PIL import Image
 from lxml import html
 from ebooklib import epub
-from selenium import webdriver
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+from _webdrivers import WebDriverType, initialize_driver, login_to_webbnovels,\
+    chrome_default_user_data, firefox_default_profile
 import tqdm
 
 # ==============================================================================
@@ -47,57 +46,6 @@ def read_auth_file(auth_file):
     if password is None:
         raise RuntimeError('Unable to find password in credential file')
     return username.decode('utf8'), password.decode('utf8')
-
-
-def initialize_driver():
-    """
-    Initialize a selenium.webdriver using a headless Chrome
-
-    Note:
-        Requires the chromedriver program to be installed
-    """
-    options = webdriver.ChromeOptions()
-    options.add_argument('headless')
-    chromedriver = webdriver.Chrome(options=options)
-    chromedriver.implicitly_wait(10)
-    chromedriver.maximize_window()
-    return chromedriver
-
-
-def login_to_webbnovels(driver, username, password):
-    """
-    Use the driver to login into webnovel.com using an email address
-
-    Args:
-        driver (selenium.webdriver): driver used to get web data
-        username (str): Username (email address)
-        password (str): Password
-    """
-    driver.get('https://passport.webnovel.com/emaillogin.html?appid=900' +
-               '&areaid=1&returnurl=https%3A%2F%2Fwww.webnovel.com%2F' +
-               'loginSuccess&auto=1&autotime=0&source=&ver=2&fromuid=0' +
-               '&target=iframe&option=')
-    email_field = driver.find_element_by_name('email')
-    email_field.send_keys(username)
-    password_field = driver.find_element_by_name('password')
-    password_field.send_keys(password)
-    submit = driver.find_element_by_id('submit')
-    submit.click()
-
-    current_url = driver.current_url
-    WebDriverWait(driver, 10).until(EC.url_changes(current_url))
-
-    # print new URL
-    body = driver.find_element_by_xpath("/html/body")
-    if body.text:
-        # Take care of the security code
-        code = driver.find_element_by_class_name('_int')
-        # driver.save_screenshot('./screenshot01.png')
-        verification_code = input("Enter verification code: ")
-        code.send_keys(str(verification_code))
-        submit = driver.find_element_by_id('checkTrust')
-        submit.click()
-        # os.remove('./screenshot01.png')
 
 
 def get_novel_list(driver, category_website, novel_title_filter):
@@ -196,9 +144,9 @@ def get_novel_data(driver, novel_website, chapter_num_start, chapter_num_end):
             cover_data = request.read()
             _, ext = os.path.splitext(img.get_attribute('src').split('?')[0])
             cover_name = 'cover{}'.format(ext)
-    except URLError:
+    except urllib.URLError:
         pass
-    
+
     synopsis_anchor = driver.find_element_by_id('about')
     synopsis = synopsis_anchor.find_element_by_tag_name('p').text
 
@@ -228,7 +176,7 @@ def get_novel_data(driver, novel_website, chapter_num_start, chapter_num_end):
         else:
             chapter_list_raw = chapter_list_raw[chapter_num_start -
                                                 1:chapter_num_end]
-    elif chapter_nunm_end:
+    elif chapter_num_end:
         chapter_list_raw = chapter_list_raw[:chapter_num_end]
 
     chapter_list = []
@@ -311,7 +259,7 @@ def generate_epub(epub_file, novel_title, cover, author, editor, translator,
         m = re.match(r'^{}\s+(.*)'.format(num), title_clean)
         if m:
             title_clean = m.group(1)
-        
+
         regen_html = False
         html_tree = html.document_fromstring(content, parser=utf8_parser)
         html_root = html_tree.getroottree()
@@ -322,15 +270,18 @@ def generate_epub(epub_file, novel_title, cover, author, editor, translator,
             title_tag.tag = 'h1'
             title_tag.text = title_clean
             regen_html = True
-            
 
         for p in html_root.xpath('/html/body/p[position()<4]'):
-            if p.text and re.match(r'^[Cc]hapter\s+{}\s+-\s+{}'.format(num, title_clean), p.text):
+            if p.text and re.match(
+                    r'^[Cc]hapter\s+{}\s+-\s+{}'.format(
+                        num,
+                        re.sub(r'([\(\)\[\]])', r'\\\1', title_clean)),
+                    p.text):
                 p.getparent().remove(p)
                 regen_html = True
                 break
         if regen_html:
-            content = html.tostring(html_tree, pretty_print=True)            
+            content = html.tostring(html_tree, pretty_print=True)
 
         chapter = epub.EpubHtml(
             title=title_clean,
@@ -360,13 +311,12 @@ def generate_epub(epub_file, novel_title, cover, author, editor, translator,
 </html>
 '''
     cover_width, cover_height = Image.open(io.BytesIO(cover_data)).size
-    titlepage = epub.EpubLiteralXHtml(title='Cover Image',
-                                      uid='titlepage',
-                                      file_name='titlepage.xhtml',
-                                      content=titlepage_content.format(
-                                          cover_width,
-                                          cover_height,
-                                          cover_name).encode('utf-8'))
+    titlepage = epub.EpubLiteralXHtml(
+        title='Cover Image',
+        uid='titlepage',
+        file_name='titlepage.xhtml',
+        content=titlepage_content.format(cover_width, cover_height,
+                                         cover_name).encode('utf-8'))
     book.add_item(titlepage)
 
     # create sections for every 100 chapters
@@ -379,14 +329,13 @@ def generate_epub(epub_file, novel_title, cover, author, editor, translator,
     section_list = []
     for section_chapters in section_chapter_list:
         try:
-            section_list.append(
-                (epub.Section('Chapters {} - {}'.format(volume_start, volume_end),
-                              start=volume_start,
-                              end=volume_end), (section_chapters)))
+            section_list.append((epub.Section(
+                'Chapters {} - {}'.format(volume_start, volume_end),
+                start=volume_start,
+                end=volume_end), (section_chapters)))
         except TypeError:
-            section_list.append(
-                (epub.Section('Chapters {} - {}'.format(volume_start, volume_end)),
-                 (section_chapters)))
+            section_list.append((epub.Section('Chapters {} - {}'.format(
+                volume_start, volume_end)), (section_chapters)))
         volume_start += volume_incr
         volume_end += volume_incr
 
@@ -436,15 +385,20 @@ nav[epub|type~='toc'] > ol > li > ol > li {
 
     # create spin, add cover page as first page
     book.spine = [titlepage, 'nav', *chapter_list]
-    book.guide = [{'href': 'titlepage.xhtml',
-                   'title': 'Cover',
-                   'type': 'cover'},
-                  {'href': 'nav.xhtml',
-                   'title': 'Table of Contents',
-                   'type': 'toc'},
-                  {'href': chapter_list[0].file_name,
-                   'title': 'Start of Content',
-                   'type': 'bodymatter'}]
+    book.guide = [{
+        'href': 'titlepage.xhtml',
+        'title': 'Cover',
+        'type': 'cover'
+    }, {
+        'href': 'nav.xhtml',
+        'title': 'Table of Contents',
+        'type': 'toc'
+    },
+                  {
+                      'href': chapter_list[0].file_name,
+                      'title': 'Start of Content',
+                      'type': 'bodymatter'
+                  }]
 
     # create epub file
     epub.write_epub(epub_file, book, {'epub2_guide': False})
@@ -457,9 +411,14 @@ def _main():
     parser = argparse.ArgumentParser(
         description='Download novels from webnovel.com and export them in ' +
         'EPUB format',
-        epilog='By specifying either `--with-chapter-start` or ' +
+        epilog='By specifying `--with-chapter-start` and/or ' +
         '`--with-chapter-end`, the script will not prompt you to choose ' +
-        'starting and ending chapter numbers.')
+        'starting and ending chapter numbers. (default values 1 and -1 resp.)')
+    parser.add_argument(
+        '-hh',
+        '--help-more',
+        action='store_true',
+        help='Display more detailed help message.')
     parser.add_argument(
         '-o',
         '--output',
@@ -503,7 +462,7 @@ def _main():
             'video-games',
             'war-military',
         ],
-        metavar='',
+        metavar='C',
         help='Specify a particular category of novels to consider.' +
         'If not specified, the user will be prompted to choose a ' +
         'category. Allowed values are: competitive-sports, ' +
@@ -524,39 +483,129 @@ def _main():
     group.add_argument(
         '-u',
         '--with-username',
+        metavar='USER',
         type=str,
         help='Username for logging into webnovel.com')
     group.add_argument(
         '-p',
         '--with-password',
+        metavar='PASSWD',
         type=str,
         help='Password for logging into webnovel.com')
+    group.add_argument(
+        '--with-cookies',
+        metavar='FILE',
+        type=argparse.FileType('rb'),
+        help='Login to webnovel.com using cookie data stored inside a ' +
+        'Pickle file')
+    group.add_argument(
+        '--with-chrome-data',
+        const=chrome_default_user_data(),
+        nargs='?',
+        metavar='FOLDER',
+        type=str,
+        help='Login to webnovel.com using an existing Chrome user-data ' +
+        'directory. If specified without an argument, use the default value.')
+    group.add_argument(
+        '--with-firefox-data',
+        const=firefox_default_profile(),
+        nargs='?',
+        metavar='FOLDER',
+        type=str,
+        help='Login to webnovel.com using an existing Firefox profile.' +
+        'If specified without an argument, use the default value.')
 
+    # --------------------------------------------------------------------------
+
+    headless = True
     username = None
     password = None
     args = parser.parse_args()
-    if args.with_credentials or args.with_username or args.with_password:
+
+    if args.help_more:
+        parser.print_help()
+        print('\n' + '-' * 80)
+        print('\nDefault values:')
+        print('   Firefox profile: {}'.format(firefox_default_profile()))
+        print('   Chrome user data: {}'.format(chrome_default_user_data()))
+        return
+
+    # --------------------------------------------------------------------------
+
+    have_user_passwd = bool(args.with_username) + bool(args.with_password)
+    have_authentication = False
+    if have_user_passwd == 1:
+        parser.error('Must specify --username and --password together')
+    elif args.with_credentials and have_user_passwd:
+        parser.error('Cannot specify --with-username and --with-password with '
+                     + '--with-credentials')
+    elif args.with_credentials and args.with_cookies:
+        parser.error('Cannot specify --with-cookies and --with-credentials')
+    elif args.with_cookies and have_user_passwd:
+        parser.error('Cannot specify --with-username and --with-password with '
+                     + '--with-cookies')
+    elif args.with_credentials or args.with_cookies or args.with_username:
+        have_authentication = True
+
+    if have_authentication and (args.with_chrome_data
+                                or args.with_firefox_data):
+        parser.error('Cannot specify either of [--with-chrome-data, ' +
+                     '--with-firefox-data] with any of [--with-username, ' +
+                     '--with-password, --with-credentials, --with-cookies]')
+
+    if have_authentication:
         if args.with_credentials:
-            if args.with_username or args.with_password:
-                parser.error(
-                    'Cannot specify --with-username or --with-password with ' +
-                    '--with-credentials')
-            else:
-                username, password = read_auth_file(args.with_credentials)
-        else:
-            if not args.with_username or not args.with_password:
-                parser.error('Must specify either --with-credentials or both '
-                             + '--with-username and --with-password')
-            else:
-                username = args.with_username
-                password = args.with_password
+            username, password = read_auth_file(args.with_credentials)
+        elif args.with_username and args.with_password:
+            username = args.with_username
+            password = args.with_password
 
-    driver = initialize_driver()
+    # --------------------------------------------------------------------------
 
-    if username is not None and password is not None:
+    print('Initializing webdriver...', end='', flush=True)
+    have_user_data = True
+    if args.with_firefox_data:
+        if not os.path.isdir(args.with_firefox_data):
+            parser.error('Folder does not exist: {}'.format(
+                args.with_firefox_data))
+        driver = initialize_driver(
+            WebDriverType.firefox,
+            headless=headless,
+            user_data_path=args.with_firefox_data)
+    elif args.with_chrome_data:
+        if not os.path.isdir(args.with_chrome_data):
+            parser.error('Folder does not exist: {}'.format(
+                args.with_chrome_data))
+        driver = initialize_driver(
+            WebDriverType.chrome,
+            headless=headless,
+            user_data_path=args.with_chrome_data)
+    else:
+        have_user_data = False
+        # Use Chrome by default
+        driver = initialize_driver(WebDriverType.chrome, headless=headless)
+    print('   DONE', flush=True)
+
+    if args.with_cookies:
+        print('Logging into webnovels.com with cookies ', flush=True)
+        login_to_webbnovels(driver, cookies=args.with_cookies)
+    elif username is not None and password is not None:
         print('Logging into webnovels.com... ', end='', flush=True)
-        login_to_webbnovels(driver, username, password)
+        login_to_webbnovels(driver, username=username, password=password)
         print('DONE')
+    elif have_user_data:
+        driver.get('https://www.webnovel.com')
+        if not driver.find_elements_by_class_name('j_user_name'):
+            driver.quit()
+            raise RuntimeError(
+                'Not logged into webnovel.com after using user data!')
+
+        print('Using existing user data and already logged into ' +
+              'webnovel.com')
+    else:
+        print('Continuing without logging into webnovel.com')
+
+    # ==========================================================================
 
     base_url = 'https://www.webnovel.com/category/list?category='
     novel_categories = {
@@ -624,6 +673,8 @@ def _main():
     else:
         category_website = novel_categories[args.with_category]
 
+    # ==========================================================================
+
     print("Getting novel list...", flush=True)
     novel_website, novel_title = get_novel_list(driver, category_website,
                                                 args.with_title)
@@ -642,22 +693,23 @@ def _main():
         chapter_num_start = 1
 
     synopsis, cover, author, translator, editor, chapter_list_raw = \
-        get_novel_data(driver, novel_website, chapter_num_start, chapter_num_end)
+        get_novel_data(driver, novel_website, chapter_num_start,
+                       chapter_num_end)
+
+    if chapter_num_end is None or chapter_num_end < 0:
+        chapter_num_end = chapter_num_start + len(chapter_list_raw) - 1
 
     if not args.with_chapter_start and not args.with_chapter_end:
         print("There are currently " + str(len(chapter_list_raw)) +
               " available")
         chapter_num_start = int(input("What's the starting chapter number?: "))
         chapter_num_end = int(input("What's the ending chapter number?: "))
-
-    if chapter_num_end is None or chapter_num_end < 0:
-        chapter_num_end = chapter_num_start + len(chapter_list_raw) - 1
+        if chapter_num_end < 0:
+            chapter_num_end = len(chapter_list_raw)
+        chapter_list_raw = chapter_list_raw[chapter_num_start -
+                                            1:chapter_num_end]
 
     chapter_num_list = list(range(chapter_num_start, chapter_num_end + 1))
-    if len(chapter_num_list) > len(chapter_list_raw):
-        # In this case, we did not filter the chapter list in get_novel_data(),
-        # so we need to do it here
-        chapter_list_raw = chapter_list_raw[:chapter_num_end-chapter_num_start]
     assert len(chapter_num_list) == len(chapter_list_raw)
 
     chapter_data_list = []
@@ -668,6 +720,10 @@ def _main():
                 unit='chapter')):
         chapter_data_list.append((chapter['title'], chapter_num_list[idx],
                                   get_chapter_text(driver, chapter['link'])))
+
+    driver.quit()
+
+    # ==========================================================================
 
     epub_filename = '{}_{}-{}.epub'.format(novel_title, chapter_num_start,
                                            chapter_num_end)
