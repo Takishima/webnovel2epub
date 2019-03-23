@@ -24,9 +24,9 @@ Otherwise, download it from the website, unpack the ZIP file and place the execu
 ### Prerequisites
 
 This script was developped while using Python 3.7. It should however also work with older Python 3 versions.
-Also, you'll need ebooklib, selenium and tqdm. To get them just open a terminal and run:
+Also, you'll need a modified version of ebooklibl, which you can find [here](https://github.com/Takishima/ebooklib), selenium and tqdm. To get them just open a terminal and run:
 ```
-pip install ebooklib selenium tqdm
+pip install git+https://github.com/Takishima/ebooklib.git@master selenium tqdm
 ```
 
 Note that on some Linux installations, you might need to install `libxml2-dev` and `libxmlsec1-dev`. E.g.

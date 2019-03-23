@@ -375,11 +375,18 @@ def generate_epub(epub_file, novel_title, cover, author, editor, translator,
     volume_start = int(
         math.floor(int(chapter_num_start) /
                    (volume_incr * 1.0))) * int(volume_incr) + 1
-    volume_end = volume_start + 100
+    volume_end = volume_start + volume_incr - 1
     section_list = []
     for section_chapters in section_chapter_list:
-        section_list.append((epub.Section('Chapters {} - {}'.format(
-            volume_start, volume_end)), (section_chapters)))
+        try:
+            section_list.append(
+                (epub.Section('Chapters {} - {}'.format(volume_start, volume_end),
+                              start=volume_start,
+                              end=volume_end), (section_chapters)))
+        except TypeError:
+            section_list.append(
+                (epub.Section('Chapters {} - {}'.format(volume_start, volume_end)),
+                 (section_chapters)))
         volume_start += volume_incr
         volume_end += volume_incr
 
@@ -388,9 +395,7 @@ def generate_epub(epub_file, novel_title, cover, author, editor, translator,
     # - add section
     # - add auto created links to chapters
 
-    book.toc = (epub.Link(
-        os.path.join('chapters', '{:04}.xhtml'.format(chapter_num_start)),
-        novel_title, 'intro'), *section_list)
+    book.toc = tuple(section_list)
 
     # add navigation files
     book.add_item(epub.EpubNcx())
