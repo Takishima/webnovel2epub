@@ -4,15 +4,17 @@ This set of Python scripts are aimed at downloading chapters from novels availab
 
 ## Getting Started
 
-To run this script you'll need to have a Python 3 installation, which you can find [here](https://www.python.org/downloads/ "Python Download Link").
+To run this script, you will need to have a Python 3 installation, which you can find [here](https://www.python.org/downloads/ "Python Download Link").
 
-Additionally, you'll need chromedriver, which you can find [here](http://chromedriver.chromium.org/ "chromedriver Download Link").
-The easiest way to install chromedriver is through a package manager:
+Additionally, you will need `chromedriver`, which you can find [here](http://chromedriver.chromium.org/ "chromedriver Download Link").
+The easiest way to install `chromedriver` is through a package manager:
 
 - Mac OS: `brew cask install chromedriver`
 - Linux: `npm -g install chromedriver`
 
 Otherwise, download it from the website, unpack the ZIP file and place the executable `chromedriver` somewhere in your PATH.
+
+It is also possible to use `geckodriver` (ie. Firefox), although for now, only through the `--with-firefox-data` command line argument (or by manually editting the `webnovel2epub.py` file).
 
 ### Features
 
@@ -23,8 +25,8 @@ Otherwise, download it from the website, unpack the ZIP file and place the execu
 
 ### Prerequisites
 
-This script was developped while using Python 3.7. It should however also work with older Python 3 versions.
-Also, you'll need a modified version of ebooklibl, which you can find [here](https://github.com/Takishima/ebooklib), selenium and tqdm. To get them just open a terminal and run:
+This script was developed while using Python 3.7. It should however also work with older Python 3 versions.
+Also, you'll need a modified version of ebooklib, which you can find [here](https://github.com/Takishima/ebooklib), selenium and tqdm. To get them just open a terminal and run:
 ```
 pip install git+https://github.com/Takishima/ebooklib.git@master selenium tqdm
 ```
@@ -44,7 +46,7 @@ python3 webnovel2epub.py --help
 ```
 This should display a help message showing you all the available options.
 
-If you did not add Python to the PATH variable during the installation or afterwards you might need to specify the Python executable path explicitely:
+If you did not add Python to the PATH variable during the installation or afterwards you might need to specify the Python executable path explicitly:
 
 ```
 path/where/you/installed/python3 webnovel2ebook.py --help
