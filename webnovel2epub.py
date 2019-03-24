@@ -17,6 +17,25 @@ import tqdm
 
 # ==============================================================================
 
+_base_url = 'https://www.webnovel.com/category/list?category='
+_novel_categories = {
+    'competitive-sports': _base_url + 'Competitive%20Sports',
+    'eastern-fantasy': _base_url + 'Eastern%20Fantasy',
+    'fan-fiction': _base_url + 'Fan-fiction%20',
+    'fantasy': _base_url + 'Fantasy',
+    'historical-fiction': _base_url + 'Historical%20Fiction',
+    'horror-thriller': _base_url + 'Horror%20%26%20Thriller',
+    'magical-realism': _base_url + 'Magical%20Realism',
+    'martial-arts': _base_url + 'Martial%20Arts',
+    'realistic-fiction': _base_url + 'Realistic%20Fiction',
+    'romance-fiction': _base_url + 'Romance%20Fiction',
+    'science-fiction': _base_url + 'Science%20Fiction',
+    'video-games': _base_url + 'Video%20Games',
+    'war-military': _base_url + 'War%20%26%20Military%20Fiction'
+}
+
+# ==============================================================================
+
 
 def read_auth_file(auth_file):
     """
@@ -274,8 +293,7 @@ def generate_epub(epub_file, novel_title, cover, author, editor, translator,
         for p in html_root.xpath('/html/body/p[position()<4]'):
             if p.text and re.match(
                     r'^[Cc]hapter\s+{}\s+-\s+{}'.format(
-                        num,
-                        re.sub(r'([\(\)\[\]])', r'\\\1', title_clean)),
+                        num, re.sub(r'([\(\)\[\]])', r'\\\1', title_clean)),
                     p.text):
                 p.getparent().remove(p)
                 regen_html = True
@@ -420,6 +438,8 @@ def _main():
         action='store_true',
         help='Display more detailed help message.')
     parser.add_argument(
+        '--show-categories', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument(
         '-o',
         '--output',
         metavar='FILE',
@@ -447,29 +467,12 @@ def _main():
         'Can be a partial match (ie. avatar for "The King\'s avatar") ')
     parser.add_argument(
         '--with-category',
-        choices=[
-            'competitive-sports',
-            'eastern-fantasy',
-            'fan-fiction',
-            'fantasy',
-            'historical-fiction',
-            'horror-thriller',
-            'magical-realism',
-            'martial-arts',
-            'realistic-fiction',
-            'romance-fiction',
-            'science-fiction',
-            'video-games',
-            'war-military',
-        ],
+        choices=sorted(list(_novel_categories)),
         metavar='C',
         help='Specify a particular category of novels to consider.' +
         'If not specified, the user will be prompted to choose a ' +
-        'category. Allowed values are: competitive-sports, ' +
-        'eastern-fantasy, fan-fiction, fantasy, historical-fiction, ' +
-        'horror-thriller, magical-realism, martial-arts, ' +
-        'realistic-fiction, romance-fiction, science-fiction, ' +
-        'video-games, war-military')
+        'category. Allowed values are: {}'.format(', '.join(
+            [k for k in sorted(list(_novel_categories))])))
 
     group = parser.add_argument_group(title='Authentication')
     group.add_argument(
@@ -528,6 +531,10 @@ def _main():
         print('\nDefault values:')
         print('   Firefox profile: {}'.format(firefox_default_profile()))
         print('   Chrome user data: {}'.format(chrome_default_user_data()))
+        return
+
+    if args.show_categories:
+        print(' '.join(sorted(list(_novel_categories))))
         return
 
     # --------------------------------------------------------------------------
@@ -607,22 +614,6 @@ def _main():
 
     # ==========================================================================
 
-    base_url = 'https://www.webnovel.com/category/list?category='
-    novel_categories = {
-        'competitive-sports': base_url + 'Competitive%20Sports',
-        'eastern-fantasy': base_url + 'Eastern%20Fantasy',
-        'fan-fiction': base_url + 'Fan-fiction%20',
-        'fantasy': base_url + 'Fantasy',
-        'historical-fiction': base_url + 'Historical%20Fiction',
-        'horror-thriller': base_url + 'Horror%20%26%20Thriller',
-        'magical-realism': base_url + 'Magical%20Realism',
-        'martial-arts': base_url + 'Martial%20Arts',
-        'realistic-fiction': base_url + 'Realistic%20Fiction',
-        'romance-fiction': base_url + 'Romance%20Fiction',
-        'science-fiction': base_url + 'Science%20Fiction',
-        'video-games': base_url + 'Video%20Games',
-        'war-military': base_url + 'War%20%26%20Military%20Fiction'
-    }
     if not args.with_category:
         print('Select Category:')
         print('')
@@ -640,38 +631,37 @@ def _main():
         print('12. Video Games')
         print('13. War & Military')
 
-        base_url = 'https://www.webnovel.com/category/list?category='
         category_website = None
         while category_website is None:
             x = int(input('Select a category (Enter Number): '))
             if x == 1:
-                category_website = novel_categories['competitive-sports']
+                category_website = _novel_categories['competitive-sports']
             elif x == 2:
-                category_website = novel_categories['eastern-fantasy']
+                category_website = _novel_categories['eastern-fantasy']
             elif x == 3:
-                category_website = novel_categories['fan-fiction']
+                category_website = _novel_categories['fan-fiction']
             elif x == 4:
-                category_website = novel_categories['fantasy']
+                category_website = _novel_categories['fantasy']
             elif x == 5:
-                category_website = novel_categories['historical-fiction']
+                category_website = _novel_categories['historical-fiction']
             elif x == 6:
-                category_website = novel_categories['horror-thriller']
+                category_website = _novel_categories['horror-thriller']
             elif x == 7:
-                category_website = novel_categories['magical-realism']
+                category_website = _novel_categories['magical-realism']
             elif x == 8:
-                category_website = novel_categories['martial-arts']
+                category_website = _novel_categories['martial-arts']
             elif x == 9:
-                category_website = novel_categories['realistic-fiction']
+                category_website = _novel_categories['realistic-fiction']
             elif x == 10:
-                category_website = novel_categories['romance-fiction']
+                category_website = _novel_categories['romance-fiction']
             elif x == 11:
-                category_website = novel_categories['science-fiction']
+                category_website = _novel_categories['science-fiction']
             elif x == 12:
-                category_website = novel_categories['video-games']
+                category_website = _novel_categories['video-games']
             elif x == 13:
-                category_website = novel_categories['war-military']
+                category_website = _novel_categories['war-military']
     else:
-        category_website = novel_categories[args.with_category]
+        category_website = _novel_categories[args.with_category]
 
     # ==========================================================================
 

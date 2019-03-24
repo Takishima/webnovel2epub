@@ -1,0 +1,39 @@
+# Bash completion script for webnovel2epub.py
+
+_webnovel2epub_complete()
+{
+    local cur prev opts long_opts categories_list
+
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    opts='-c -h -hh -o -p -u'
+    long_opts="--help --help-more --output --with-category --with-chapter-end"
+    long_opts="${long_opts} --with-chapter-start --with-chrome-data "
+    long_opts="${long_opts} --with-cookies --with-credentials "
+    long_opts="${long_opts} --with-firefox-data --with-password --with-title "
+    long_opts="${long_opts} --with-username"
+
+    # Only perform completion if the current word starts with a dash ('-'),
+    # meaning that the user is trying to complete an option.
+    if [[ ${prev} == '--with-category' ]]; then
+	categories_list=`webnovel2epub.py --show-categories`
+        COMPREPLY=( $(compgen -W "${categories_list}" -- ${cur}) )
+    elif [[ ${prev} == '-o' || ${prev} == '--output' \
+		|| ${prev} == '-c' || ${prev} == '--with-credentials' \
+		|| ${prev} == '--with-cookies' ]]; then
+	_filedir
+    elif [[ ${prev} == '--with-firefox-data' \
+		|| ${prev} == '--with-chrome-data' ]]; then
+	_filedir -d
+    elif [[ ${cur} == --* ]] ; then
+        COMPREPLY=( $(compgen -W "${long_opts}" -- ${cur}) )
+    elif [[ ${cur} == -* ]] ; then
+        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+    else
+        COMPREPLY=()
+    fi
+    return 0
+}
+
+complete -o filenames -F _webnovel2epub_complete webnovel2epub.py
