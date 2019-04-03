@@ -11,13 +11,15 @@ import urllib.request
 from PIL import Image
 from lxml import html
 from ebooklib import epub
+
 from _webdrivers import WebDriverType, initialize_driver, login_to_webbnovels,\
     chrome_default_user_data, firefox_default_profile
 import tqdm
 
 # ==============================================================================
 
-_base_url = 'https://www.webnovel.com/category/list?category='
+_root_url = 'https://www.webnovel.com'
+_base_url = _root_url + '/category/list?category='
 _novel_categories = {
     'competitive-sports': _base_url + 'Competitive%20Sports',
     'eastern-fantasy': _base_url + 'Eastern%20Fantasy',
@@ -67,13 +69,14 @@ def read_auth_file(auth_file):
     return username.decode('utf8'), password.decode('utf8')
 
 
-def get_novel_list(driver, category_website, novel_title_filter):
+def get_novel_list_from_category(driver, category_website, novel_title_filter):
     """
     Retrieve the list of novels from the given category on webnovel.com
 
     Args:
         driver (selenium.webdriver): driver used to get web data
         category_website (str): URL to a novel category on webnovel.com
+        novel_title_filter (str): String to match when looking for the title
 
     Returns:
         Tuple of (URL, title) for the selected novel
@@ -94,6 +97,55 @@ def get_novel_list(driver, category_website, novel_title_filter):
         book for book in result
         if novel_title_filter.lower() in book['title'].lower()
     ]
+
+    if len(result) == 1:
+        return (result[0]['link'], result[0]['title'])
+
+    for idx, book in enumerate(result):
+        print('{:02}. {}'.format(idx + 1, book['title']))
+
+    select = -1
+    while select < 1 or select > len(result):
+        select = int(input("Which novel do you want to read?: "))
+    return (result[select - 1]['link'], result[select - 1]['title'])
+
+
+def get_novel_list_from_search(driver, novel_title_filter):
+    """
+    Retrieve the list of novels by using the search page of webnovel.com
+
+    Args:
+        driver (selenium.webdriver): driver used to get web data
+        novel_title_filter (str): String to match when looking for the title
+
+    Returns:
+        Tuple of (URL, title) for the selected novel
+    """
+
+    driver.get(_root_url + '/search')
+
+    search = driver.find_element_by_id('search')
+    if novel_title_filter:
+        terms = novel_title_filter
+    else:
+        terms = input("Please enter your search terms: ")
+
+    search.send_keys(terms)
+    search.submit()
+
+    search = driver.find_element_by_id('search')
+    assert search.get_attribute('value') == terms
+
+    book_list = driver.find_element_by_class_name(
+        'j_list_container').find_element_by_tag_name('ul')
+    book_items = book_list.find_elements_by_tag_name('li')
+
+    result = [{
+        'link':
+        book.find_element_by_tag_name('a').get_attribute("href"),
+        'title':
+        book.find_element_by_tag_name('a').get_attribute("title")
+    } for book in book_items]
 
     if len(result) == 1:
         return (result[0]['link'], result[0]['title'])
@@ -466,13 +518,24 @@ def _main():
         help='Title of novel to download. ' +
         'Can be a partial match (ie. avatar for "The King\'s avatar") ')
     parser.add_argument(
-        '--with-category',
+        '--with-output-title',
+        type=str,
+        metavar='STR',
+        help='Title to save into the EPUB metadata')
+
+    group = parser.add_argument_group(title='Novel discovery mode')
+    group.add_argument(
+        '--category',
         choices=sorted(list(_novel_categories)),
         metavar='C',
         help='Specify a particular category of novels to consider.' +
         'If not specified, the user will be prompted to choose a ' +
         'category. Allowed values are: {}'.format(', '.join(
             [k for k in sorted(list(_novel_categories))])))
+    group.add_argument(
+        '--search',
+        action='store_true',
+        help='Run a search on webnovel.com to find a novel to download')
 
     group = parser.add_argument_group(title='Authentication')
     group.add_argument(
@@ -614,60 +677,66 @@ def _main():
 
     # ==========================================================================
 
-    if not args.with_category:
-        print('Select Category:')
-        print('')
-        print('01. Competitive Sports')
-        print('02. Eastern Fantasy')
-        print('03. Fan-fiction')
-        print('04. Fantasy')
-        print('05. Historical Fiction')
-        print('06. Horror & Thriller')
-        print('07. Magical Realism')
-        print('08. Martial Arts')
-        print('09. Realistic Fiction')
-        print('10. Romance Fiction')
-        print('11. Science Fiction')
-        print('12. Video Games')
-        print('13. War & Military')
-
-        category_website = None
-        while category_website is None:
-            x = int(input('Select a category (Enter Number): '))
-            if x == 1:
-                category_website = _novel_categories['competitive-sports']
-            elif x == 2:
-                category_website = _novel_categories['eastern-fantasy']
-            elif x == 3:
-                category_website = _novel_categories['fan-fiction']
-            elif x == 4:
-                category_website = _novel_categories['fantasy']
-            elif x == 5:
-                category_website = _novel_categories['historical-fiction']
-            elif x == 6:
-                category_website = _novel_categories['horror-thriller']
-            elif x == 7:
-                category_website = _novel_categories['magical-realism']
-            elif x == 8:
-                category_website = _novel_categories['martial-arts']
-            elif x == 9:
-                category_website = _novel_categories['realistic-fiction']
-            elif x == 10:
-                category_website = _novel_categories['romance-fiction']
-            elif x == 11:
-                category_website = _novel_categories['science-fiction']
-            elif x == 12:
-                category_website = _novel_categories['video-games']
-            elif x == 13:
-                category_website = _novel_categories['war-military']
+    if args.search:
+        print("Getting novel list...", flush=True)
+        novel_website, novel_title = get_novel_list_from_search(
+            driver, args.with_title)
     else:
-        category_website = _novel_categories[args.with_category]
+        if not args.category:
+            print('Select Category:')
+            print('')
+            print('01. Competitive Sports')
+            print('02. Eastern Fantasy')
+            print('03. Fan-fiction')
+            print('04. Fantasy')
+            print('05. Historical Fiction')
+            print('06. Horror & Thriller')
+            print('07. Magical Realism')
+            print('08. Martial Arts')
+            print('09. Realistic Fiction')
+            print('10. Romance Fiction')
+            print('11. Science Fiction')
+            print('12. Video Games')
+            print('13. War & Military')
+
+            category_website = None
+            while category_website is None:
+                x = int(input('Select a category (Enter Number): '))
+                if x == 1:
+                    category_website = _novel_categories['competitive-sports']
+                elif x == 2:
+                    category_website = _novel_categories['eastern-fantasy']
+                elif x == 3:
+                    category_website = _novel_categories['fan-fiction']
+                elif x == 4:
+                    category_website = _novel_categories['fantasy']
+                elif x == 5:
+                    category_website = _novel_categories['historical-fiction']
+                elif x == 6:
+                    category_website = _novel_categories['horror-thriller']
+                elif x == 7:
+                    category_website = _novel_categories['magical-realism']
+                elif x == 8:
+                    category_website = _novel_categories['martial-arts']
+                elif x == 9:
+                    category_website = _novel_categories['realistic-fiction']
+                elif x == 10:
+                    category_website = _novel_categories['romance-fiction']
+                elif x == 11:
+                    category_website = _novel_categories['science-fiction']
+                elif x == 12:
+                    category_website = _novel_categories['video-games']
+                elif x == 13:
+                    category_website = _novel_categories['war-military']
+        else:
+            category_website = _novel_categories[args.category]
+
+        print("Getting novel list...", flush=True)
+        novel_website, novel_title = get_novel_list_from_category(
+            driver, category_website, args.with_title)
 
     # ==========================================================================
 
-    print("Getting novel list...", flush=True)
-    novel_website, novel_title = get_novel_list(driver, category_website,
-                                                args.with_title)
     print('  -> selected {}'.format(novel_title))
 
     print("Getting chapter names, links, cover and metadata...", flush=True)
@@ -719,6 +788,9 @@ def _main():
                                            chapter_num_end)
     if args.output:
         epub_filename = args.output
+
+    if args.with_output_title:
+        novel_title = args.with_output_title
 
     generate_epub(epub_filename, novel_title, cover, author, editor,
                   translator, synopsis, chapter_data_list)
