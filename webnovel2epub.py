@@ -331,16 +331,19 @@ def generate_epub(epub_file, novel_title, cover, author, editor, translator,
         if m:
             title_clean = m.group(1)
 
-        regen_html = False
+        regen_html = True
         html_tree = html.document_fromstring(content, parser=utf8_parser)
         html_root = html_tree.getroottree()
         title_tag = html_root.find('body').getchildren()[0]
         if title_tag.tag not in ['h1', 'h2', 'h3', 'h4']:
-            content = '<h1>{}</h1>'.format(title_clean) + content
+            body = html_root.find('body')
+            title_tag = html.fromstring('<h1>{}</h1>'.format(title_clean))
+            body.insert(0, title_tag)
         elif title_tag.tag in ['h1', 'h2', 'h3', 'h4']:
             title_tag.tag = 'h1'
             title_tag.text = title_clean
-            regen_html = True
+        else:
+            regen_html = False
 
         for p in html_root.xpath('/html/body/p[position()<4]'):
             if p.text and re.match(
