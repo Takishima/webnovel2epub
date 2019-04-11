@@ -32,9 +32,8 @@ def chrome_default_user_data():
         root_dir = '~/Library/Application Support/Google/Chrome/'
 
     elif sys.platform == 'win32':
-        root_dir = os.path.join(
-            os.path.expandvars(r'%LOCALAPPDATA%'), 'Google', 'Chrome',
-            'User Data')
+        root_dir = os.path.join(os.path.expandvars(r'%LOCALAPPDATA%'),
+                                'Google', 'Chrome', 'User Data')
 
     root_dir = os.path.expanduser(root_dir)
     if os.path.isdir(root_dir):
@@ -62,9 +61,8 @@ def firefox_default_profile():
         ]
     elif sys.platform == 'win32':
         root_dir_list = [
-            os.path.join(
-                os.path.expandvars(r'%APPDATA%'), 'Mozilla', 'Firefox',
-                'Profiles')
+            os.path.join(os.path.expandvars(r'%APPDATA%'), 'Mozilla',
+                         'Firefox', 'Profiles')
         ]
 
     profile_dir_list = []
@@ -114,11 +112,38 @@ def wait_until_class_appears(driver, element_class, timeout=10):
 
     Args:
         driver (selenium.webdriver): driver used to get web data
-        element_class (str): HTML id to look for
+        element_class (str): HTML class to look for
         timeout (int): number of seconds to use as timeout
     """
     WebDriverWait(driver, timeout).until(
         EC.presence_of_element_located((By.CLASS_NAME, element_class)))
+
+
+class text_to_change(object):
+    def __init__(self, locator, text):
+        self._locator = locator
+        self._text = text
+
+    def __call__(self, driver):
+        text = EC._find_element(driver, self._locator).text
+        return text != self._text
+
+
+def wait_until_class_text_changes(driver,
+                                  element_class,
+                                  text_before,
+                                  timeout=10):
+    """
+    Makes the driver wait until an HTML tag with a particular class has a 
+    change in its text content
+
+    Args:
+        driver (selenium.webdriver): driver used to get web data
+        element_class (str): HTML class to look for
+        timeout (int): number of seconds to use as timeout
+    """
+    WebDriverWait(driver, 10).until(
+        text_to_change((By.CLASS_NAME, element_class), text_before))
 
 
 def wait_until_name_appears(driver, element_name, timeout=10):
@@ -127,7 +152,7 @@ def wait_until_name_appears(driver, element_name, timeout=10):
 
     Args:
         driver (selenium.webdriver): driver used to get web data
-        element_name (str): HTML class to look for
+        element_name (str): HTML tag to look for
         timeout (int): number of seconds to use as timeout
     """
 
@@ -172,8 +197,8 @@ def _initialize_firefox_driver(headless, user_data_path):
         options.headless = True
     if user_data_path is not None:
         profile = webdriver.FirefoxProfile(user_data_path)
-    firefox_driver = webdriver.Firefox(
-        firefox_profile=profile, options=options)
+    firefox_driver = webdriver.Firefox(firefox_profile=profile,
+                                       options=options)
     firefox_driver.implicitly_wait(10)
     firefox_driver.maximize_window()
     profile = None
@@ -293,3 +318,23 @@ def login_to_webbnovels(driver, **kwargs):
         driver.quit()
         raise RuntimeError(
             'Unable to do anything with these arguments: {}'.format(kwargs))
+
+
+# ==============================================================================
+
+
+def buy_chapter_with_ss(driver, container_class, content_class):
+    container = driver.find_element_by_class_name(container_class)
+    text_before = container.find_element_by_class_name(content_class).text
+
+    body = container.find_element_by_class_name('lock-body')
+    number_ss = int(body.text)
+
+    buy_button = container.find_element_by_class_name('j_unlockChapter')
+    buy_button.click()
+    wait_until_class_text_changes(driver, 'cha-content', text_before)
+
+    if container.find_element_by_class_name('cha-content').text == text_before:
+        raise RuntimeError('Failed to buy chapter!')
+
+    return number_ss

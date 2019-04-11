@@ -12,8 +12,9 @@ from PIL import Image
 from lxml import html
 from ebooklib import epub
 
-from _webdrivers import WebDriverType, initialize_driver, login_to_webbnovels,\
-    chrome_default_user_data, firefox_default_profile
+from _webdrivers import (WebDriverType, initialize_driver, login_to_webbnovels,
+                         chrome_default_user_data, firefox_default_profile,
+                         buy_chapter_with_ss)
 import tqdm
 
 # ==============================================================================
@@ -251,8 +252,9 @@ def get_novel_data(driver, novel_website, chapter_num_start, chapter_num_end):
         chapter_list_raw = chapter_list_raw[:chapter_num_end]
 
     chapter_list = []
-    for element in tqdm.tqdm(
-            chapter_list_raw, desc='Extracting chapter data', unit='chapter'):
+    for element in tqdm.tqdm(chapter_list_raw,
+                             desc='Extracting chapter data',
+                             unit='chapter'):
         chapter_list.append({
             'link': element.get_attribute('href'),
             'title': cleanup_chapter_title(element.text)
@@ -262,7 +264,7 @@ def get_novel_data(driver, novel_website, chapter_num_start, chapter_num_end):
         chapter_list
 
 
-def get_chapter_text(driver, url):
+def get_chapter_text(driver, url, auto_buy=False):
     """
     Retrieve the text of a chapter located on webnovel.com
 
@@ -274,7 +276,19 @@ def get_chapter_text(driver, url):
         Text of chapter as a string
     """
     driver.get(url)
-    anchor = driver.find_element_by_class_name('cha-words')
+
+    container = driver.find_element_by_class_name('j_contentWrap')
+    content = container.find_element_by_class_name('cha-content')
+
+    if '_lock' in content.get_attribute('class'):
+        if not auto_buy:
+            raise RuntimeError('Chapter at {} is locked!'.format(url))
+        buy_chapter_with_ss(driver, 'j_contentWrap', 'cha-content')
+
+        # container = driver.find_element_by_class_name('j_contentWrap')
+        # content = container.find_element_by_class_name('cha-content')
+
+    anchor = content.find_element_by_class_name('cha-words')
     text = ''
     for element in anchor.find_elements_by_tag_name('p'):
         text += '<p>{}</p>'.format(element.text)
@@ -356,11 +370,11 @@ def generate_epub(epub_file, novel_title, cover, author, editor, translator,
         if regen_html:
             content = html.tostring(html_tree, pretty_print=True)
 
-        chapter = epub.EpubHtml(
-            title=title_clean,
-            file_name=os.path.join('chapters', '{:04}.xhtml'.format(num)),
-            content=content,
-            lang='hr')
+        chapter = epub.EpubHtml(title=title_clean,
+                                file_name=os.path.join(
+                                    'chapters', '{:04}.xhtml'.format(num)),
+                                content=content,
+                                lang='hr')
         chapter_list.append(chapter)
         book.add_item(chapter)
 
@@ -384,28 +398,28 @@ def generate_epub(epub_file, novel_title, cover, author, editor, translator,
 </html>
 '''
     cover_width, cover_height = Image.open(io.BytesIO(cover_data)).size
-    titlepage = epub.EpubLiteralXHtml(
-        title='Cover Image',
-        uid='titlepage',
-        file_name='titlepage.xhtml',
-        content=titlepage_content.format(cover_width, cover_height,
-                                         cover_name).encode('utf-8'))
+    titlepage = epub.EpubLiteralXHtml(title='Cover Image',
+                                      uid='titlepage',
+                                      file_name='titlepage.xhtml',
+                                      content=titlepage_content.format(
+                                          cover_width, cover_height,
+                                          cover_name).encode('utf-8'))
     book.add_item(titlepage)
 
     # create sections for every 100 chapters
     volume_incr = 100
     section_chapter_list = chunks(chapter_list, volume_incr)
-    volume_start = int(
-        math.floor(int(chapter_num_start) /
-                   (volume_incr * 1.0))) * int(volume_incr) + 1
+    volume_start = int(math.floor(
+        int(chapter_num_start) / (volume_incr * 1.0))) * int(volume_incr) + 1
     volume_end = volume_start + volume_incr - 1
     section_list = []
     for section_chapters in section_chapter_list:
         try:
-            section_list.append((epub.Section(
-                'Chapters {} - {}'.format(volume_start, volume_end),
-                start=volume_start,
-                end=volume_end), (section_chapters)))
+            section_list.append(
+                (epub.Section('Chapters {} - {}'.format(
+                    volume_start, volume_end),
+                              start=volume_start,
+                              end=volume_end), (section_chapters)))
         except TypeError:
             section_list.append((epub.Section('Chapters {} - {}'.format(
                 volume_start, volume_end)), (section_chapters)))
@@ -449,11 +463,10 @@ nav[epub|type~='toc'] > ol > li > ol > li {
 }
 '''
     # add css file
-    nav_css = epub.EpubItem(
-        uid="style_nav",
-        file_name="style/nav.css",
-        media_type="text/css",
-        content=style)
+    nav_css = epub.EpubItem(uid="style_nav",
+                            file_name="style/nav.css",
+                            media_type="text/css",
+                            content=style)
     book.add_item(nav_css)
 
     # create spin, add cover page as first page
@@ -466,12 +479,11 @@ nav[epub|type~='toc'] > ol > li > ol > li {
         'href': 'nav.xhtml',
         'title': 'Table of Contents',
         'type': 'toc'
-    },
-                  {
-                      'href': chapter_list[0].file_name,
-                      'title': 'Start of Content',
-                      'type': 'bodymatter'
-                  }]
+    }, {
+        'href': chapter_list[0].file_name,
+        'title': 'Start of Content',
+        'type': 'bodymatter'
+    }]
 
     # create epub file
     epub.write_epub(epub_file, book, {'epub2_guide': False})
@@ -487,13 +499,13 @@ def _main():
         epilog='By specifying `--with-chapter-start` and/or ' +
         '`--with-chapter-end`, the script will not prompt you to choose ' +
         'starting and ending chapter numbers. (default values 1 and -1 resp.)')
-    parser.add_argument(
-        '-hh',
-        '--help-more',
-        action='store_true',
-        help='Display more detailed help message.')
-    parser.add_argument(
-        '--show-categories', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('-hh',
+                        '--help-more',
+                        action='store_true',
+                        help='Display more detailed help message.')
+    parser.add_argument('--show-categories',
+                        action='store_true',
+                        help=argparse.SUPPRESS)
     parser.add_argument(
         '-o',
         '--output',
@@ -502,11 +514,10 @@ def _main():
         help='Output EPUB file. If empty, automatically ' +
         'generate a filename based on the novel\'s title and selection of ' +
         'chapters (default: [])')
-    parser.add_argument(
-        '--with-chapter-start',
-        type=int,
-        metavar='N',
-        help='Starting chapter number.')
+    parser.add_argument('--with-chapter-start',
+                        type=int,
+                        metavar='N',
+                        help='Starting chapter number.')
     parser.add_argument(
         '--with-chapter-end',
         type=int,
@@ -520,11 +531,14 @@ def _main():
         default='',
         help='Title of novel to download. ' +
         'Can be a partial match (ie. avatar for "The King\'s avatar") ')
+    parser.add_argument('--with-output-title',
+                        type=str,
+                        metavar='STR',
+                        help='Title to save into the EPUB metadata')
     parser.add_argument(
-        '--with-output-title',
-        type=str,
-        metavar='STR',
-        help='Title to save into the EPUB metadata')
+        '--auto-buy',
+        action='store_true',
+        help='Automatically buy chapters using Spirit Stones (SS)')
 
     group = parser.add_argument_group(title='Novel discovery mode')
     group.add_argument(
@@ -549,18 +563,16 @@ def _main():
         help='File containing the username and password encoded with Base64. '
         + 'This file must contain two key-value pairs separated by a colon: ' +
         '`username` and `password`. The values need to be Base64 encoded.')
-    group.add_argument(
-        '-u',
-        '--with-username',
-        metavar='USER',
-        type=str,
-        help='Username for logging into webnovel.com')
-    group.add_argument(
-        '-p',
-        '--with-password',
-        metavar='PASSWD',
-        type=str,
-        help='Password for logging into webnovel.com')
+    group.add_argument('-u',
+                       '--with-username',
+                       metavar='USER',
+                       type=str,
+                       help='Username for logging into webnovel.com')
+    group.add_argument('-p',
+                       '--with-password',
+                       metavar='PASSWD',
+                       type=str,
+                       help='Password for logging into webnovel.com')
     group.add_argument(
         '--with-cookies',
         metavar='FILE',
@@ -610,13 +622,15 @@ def _main():
     if have_user_passwd == 1:
         parser.error('Must specify --username and --password together')
     elif args.with_credentials and have_user_passwd:
-        parser.error('Cannot specify --with-username and --with-password with '
-                     + '--with-credentials')
+        parser.error(
+            'Cannot specify --with-username and --with-password with ' +
+            '--with-credentials')
     elif args.with_credentials and args.with_cookies:
         parser.error('Cannot specify --with-cookies and --with-credentials')
     elif args.with_cookies and have_user_passwd:
-        parser.error('Cannot specify --with-username and --with-password with '
-                     + '--with-cookies')
+        parser.error(
+            'Cannot specify --with-username and --with-password with ' +
+            '--with-cookies')
     elif args.with_credentials or args.with_cookies or args.with_username:
         have_authentication = True
 
@@ -632,6 +646,8 @@ def _main():
         elif args.with_username and args.with_password:
             username = args.with_username
             password = args.with_password
+    elif args.auto_buy:
+        parser.error('Cannot specify --auto-buy without authentication!')
 
     # --------------------------------------------------------------------------
 
@@ -641,18 +657,16 @@ def _main():
         if not os.path.isdir(args.with_firefox_data):
             parser.error('Folder does not exist: {}'.format(
                 args.with_firefox_data))
-        driver = initialize_driver(
-            WebDriverType.firefox,
-            headless=headless,
-            user_data_path=args.with_firefox_data)
+        driver = initialize_driver(WebDriverType.firefox,
+                                   headless=headless,
+                                   user_data_path=args.with_firefox_data)
     elif args.with_chrome_data:
         if not os.path.isdir(args.with_chrome_data):
             parser.error('Folder does not exist: {}'.format(
                 args.with_chrome_data))
-        driver = initialize_driver(
-            WebDriverType.chrome,
-            headless=headless,
-            user_data_path=args.with_chrome_data)
+        driver = initialize_driver(WebDriverType.chrome,
+                                   headless=headless,
+                                   user_data_path=args.with_chrome_data)
     else:
         have_user_data = False
         # Use Chrome by default
@@ -776,12 +790,12 @@ def _main():
 
     chapter_data_list = []
     for idx, chapter in enumerate(
-            tqdm.tqdm(
-                chapter_list_raw,
-                desc='Downloading chapter content',
-                unit='chapter')):
+            tqdm.tqdm(chapter_list_raw,
+                      desc='Downloading chapter content',
+                      unit='chapter')):
         chapter_data_list.append((chapter['title'], chapter_num_list[idx],
-                                  get_chapter_text(driver, chapter['link'])))
+                                  get_chapter_text(driver, chapter['link'],
+                                                   args.auto_buy)))
 
     driver.quit()
 
