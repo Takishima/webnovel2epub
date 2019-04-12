@@ -296,7 +296,7 @@ def get_chapter_text(driver, url, auto_buy=False):
 
 
 def chunks(alist, chunk_size):
-    """Yield successive n-sized chunks from l."""
+    """Yield successive n-sized chunks from a list."""
     for i in range(0, len(alist), chunk_size):
         yield alist[i:i + chunk_size]
 

@@ -1,5 +1,6 @@
 from enum import Enum
 import os
+import re
 import sys
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -324,17 +325,33 @@ def login_to_webbnovels(driver, **kwargs):
 
 
 def buy_chapter_with_ss(driver, container_class, content_class):
+    """
+    Buy a chapter using Spirit Stones
+
+    Args:
+        driver (selenium.webdriver): driver used to get web data
+        container_class (str): class name for the chapter container <div>
+        content_class (str): class name for the chapter content <div>
+    """
     container = driver.find_element_by_class_name(container_class)
     text_before = container.find_element_by_class_name(content_class).text
 
-    body = container.find_element_by_class_name('lock-body')
-    number_ss = int(body.text)
+    body = container.find_element_by_class_name('lock-price')
+    required_ss = int(body.text)
+
+    body = container.find_element_by_class_name('j_lock_balance')
+    m = re.match(r'.*\s*([0-9]+)\s*$', body.text)
+    available_ss = None
+    if m:
+        available_ss = int(m.group(1))
 
     buy_button = container.find_element_by_class_name('j_unlockChapter')
+    if not buy_button.is_displayed():
+        raise RuntimeError(('Unsufficient Spirit Stones available to buy ' +
+                           'chapter!\nRequires {} SS but only {} SS ' +
+                           'available!').format(required_ss, available_ss))
     buy_button.click()
     wait_until_class_text_changes(driver, 'cha-content', text_before)
 
     if container.find_element_by_class_name('cha-content').text == text_before:
         raise RuntimeError('Failed to buy chapter!')
-
-    return number_ss
