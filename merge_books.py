@@ -93,11 +93,14 @@ def _main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('epub1', type=str, help='First EPUB file')
     parser.add_argument('epub2', type=str, help='Second EPUB file')
+    parser.add_argument('output',
+                        type=str,
+                        help='Output EPUB file. Can be identical to ' +
+                        'either epub1 or epub2')
     parser.add_argument(
-        'output',
-        type=str,
-        help='Output EPUB file. Can be identical to ' +
-        'either epub1 or epub2')
+        '--force',
+        action='store_true',
+        help='Force merge (even if metadata consistency check fails)')
 
     args = parser.parse_args()
 
@@ -108,7 +111,12 @@ def _main():
     book2_data = extract_book_metadata(book2)
 
     # This might be too restrictive...
-    if book1_data != book2_data:
+    if not args.force and book1_data != book2_data:
+        cover_str = '__cover_match__'
+        if book1_data['cover'] != book2_data['cover']:
+            cover_str = '__cover_*mis*match__'
+        book1_data['cover'] = cover_str
+        book2_data['cover'] = cover_str
         raise RuntimeError(
             'Unable to combine epub1 and epub2: metadata are ' +
             'not identical!\n{}\nvs.\n{}'.format(book1_data, book2_data))
@@ -122,15 +130,16 @@ def _main():
     book2_chapter_end = book2_chapters[-1][1]
 
     if book2_chapter_end < book1_chapter_end:
-        raise RuntimeError(('epub2\'s final chapter {} is lower than ' +
-                            'epub1\'s final chapter {}').format(
-                                book2_chapter_end, book1_chapter_end))
+        raise RuntimeError(
+            ('epub2\'s final chapter {} is lower than ' +
+             'epub1\'s final chapter {}').format(book2_chapter_end,
+                                                 book1_chapter_end))
 
     print('Found chapters {} to {} in first EPUB'.format(
         book1_chapter_start, book1_chapter_end))
     print('Found chapters {} to {} in second EPUB'.format(
         book2_chapter_start, book2_chapter_end))
-    if book2_chapter_start < book1_chapter_end:
+    if book2_chapter_start <= book1_chapter_end:
         print('  -> will discard chapters {} to {} from second EPUB'.format(
             book2_chapter_start, book1_chapter_end))
         diff = book1_chapter_end - book2_chapter_start + 1
