@@ -2,6 +2,7 @@ from enum import Enum
 import os
 import re
 import sys
+from selenium.common.exceptions import TimeoutException
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -269,19 +270,16 @@ def _login_to_webbnovels(driver, username, password):
     password_field.send_keys(password)
     submit = driver.find_element_by_id('submit')
     submit.click()
-    wait_until_class_appears(driver, 'j_user_name')
-
-    # TODO: is this still required ?
-    # body = driver.find_element_by_xpath("/html/body")
-    # if body.text:
-    #     # Take care of the security code
-    #     code = driver.find_element_by_class_name('_int')
-    #     # driver.save_screenshot('./screenshot01.png')
-    #     verification_code = input("Enter verification code: ")
-    #     code.send_keys(str(verification_code))
-    #     submit = driver.find_element_by_id('checkTrust')
-    #     submit.click()
-    #     # os.remove('./screenshot01.png')
+    try:
+        wait_until_class_appears(driver, 'j_user_name', timeout=5)
+    except TimeoutException:
+        # Take care of the security code
+        code = driver.find_element_by_name('trustcode')
+        verification_code = input("Enter verification code: ")
+        code.send_keys(str(verification_code))
+        submit = driver.find_element_by_id('checkTrust')
+        submit.click()
+        wait_until_class_appears(driver, 'j_user_name')
 
 
 def _login_to_webbnovels_with_cookies(driver, cookie_file):
