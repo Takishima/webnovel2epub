@@ -539,6 +539,9 @@ def _main():
         '--auto-buy',
         action='store_true',
         help='Automatically buy chapters using Spirit Stones (SS)')
+    parser.add_argument('--no-headless',
+                        action='store_false',
+                        help='Do not run in headless mode')
 
     group = parser.add_argument_group(title='Novel discovery mode')
     group.add_argument(
@@ -598,10 +601,11 @@ def _main():
 
     # --------------------------------------------------------------------------
 
-    headless = True
+    args = parser.parse_args()
+
+    headless = args.no_headless
     username = None
     password = None
-    args = parser.parse_args()
 
     if args.help_more:
         parser.print_help()
@@ -646,7 +650,8 @@ def _main():
         elif args.with_username and args.with_password:
             username = args.with_username
             password = args.with_password
-    elif args.auto_buy:
+    elif args.auto_buy and not (args.with_chrome_data
+                                or args.with_firefox_data):
         parser.error('Cannot specify --auto-buy without authentication!')
 
     # --------------------------------------------------------------------------
@@ -681,14 +686,12 @@ def _main():
         login_to_webbnovels(driver, username=username, password=password)
         print('DONE')
     elif have_user_data:
+        print('Using existing user data', flush=True)
         driver.get('https://www.webnovel.com')
         if not driver.find_elements_by_class_name('j_user_name'):
             driver.quit()
             raise RuntimeError(
                 'Not logged into webnovel.com after using user data!')
-
-        print('Using existing user data and already logged into ' +
-              'webnovel.com')
     else:
         print('Continuing without logging into webnovel.com')
 
