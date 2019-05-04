@@ -176,9 +176,9 @@ def cleanup_chapter_title(chapter_title):
     chapter_title = re.sub(
         r'(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|' +
         r'Dec)\s+[0-9]+,\s*[0-9]+', '', chapter_title)
-    chapter_title = re.sub(r'[0-9]+\s+(?:hours|day|days)\s+ago', '',
+    chapter_title = re.sub(r'[0-9]+\s+(?:minutes?|hours?|days?)\s+ago', '',
                            chapter_title)
-    return chapter_title
+    return chapter_title.strip()
 
 
 def get_novel_data(driver, novel_website, chapter_num_start, chapter_num_end):
