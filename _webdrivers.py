@@ -309,11 +309,32 @@ def login_to_webbnovels(driver, **kwargs):
         driver (selenium.webdriver): driver used to get web data
         **kwargs: can be either `cookies` or `username` and `password`
     """
-    if 'cookies' in kwargs:
-        _login_to_webbnovels_with_cookies(driver, kwargs['cookies'])
-    elif 'username' in kwargs and 'password' in kwargs:
-        _login_to_webbnovels(driver, kwargs['username'], kwargs['password'])
-    else:
+    ok = True
+    try:
+        if 'cookies' in kwargs:
+            _login_to_webbnovels_with_cookies(driver, kwargs['cookies'])
+        elif 'username' in kwargs and 'password' in kwargs:
+            _login_to_webbnovels(driver, kwargs['username'],
+                                 kwargs['password'])
+        else:
+            ok = False
+    except RuntimeError as e:
+        print(e)
+        if type(driver) is webdriver.chrome.webdriver.WebDriver:
+            is_headless = driver.execute_script("return window.chrome") is None
+        elif type(driver) is webdriver.firefox.webdriver.WebDriver:
+            is_headless = driver.capabilities['moz:headless']
+        else:
+            is_headless = True
+
+        if not is_headless:
+            print('Please manually login into webnovel.com')
+            wait_until_class_appears(driver, 'j_user_name', timeout=120)
+        else:
+            raise RuntimeError('Running in headless mode, cannot ' +
+                               'do anything else. Please run again' +
+                               ' using --no-headless')
+    if not ok:
         driver.quit()
         raise RuntimeError(
             'Unable to do anything with these arguments: {}'.format(kwargs))
@@ -345,9 +366,10 @@ def buy_chapter_with_ss(driver, container_class, content_class):
 
     buy_button = container.find_element_by_class_name('j_unlockChapter')
     if not buy_button.is_displayed():
-        raise RuntimeError(('Unsufficient Spirit Stones available to buy ' +
-                           'chapter!\nRequires {} SS but only {} SS ' +
-                           'available!').format(required_ss, available_ss))
+        raise RuntimeError(
+            ('Unsufficient Spirit Stones available to buy ' +
+             'chapter!\nRequires {} SS but only {} SS ' + 'available!').format(
+                 required_ss, available_ss))
     buy_button.click()
     wait_until_class_text_changes(driver, 'cha-content', text_before)
 

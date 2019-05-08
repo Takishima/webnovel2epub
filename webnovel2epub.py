@@ -171,11 +171,11 @@ def cleanup_chapter_title(chapter_title):
         Cleaned up chapter title
     """
     chapter_title = re.sub(
-        r'[0-9]+\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|' +
-        r'Oct|Nov|Dec)\s+[0-9]+', '', chapter_title)
-    chapter_title = re.sub(
         r'(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|' +
-        r'Dec)\s+[0-9]+,\s*[0-9]+', '', chapter_title)
+        r'Dec)\s+[0-9]{1,2},\s*[0-9]{4}', '', chapter_title)
+    chapter_title = re.sub(
+        r'[0-9]{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|' +
+        r'Oct|Nov|Dec)\s+[0-9]{4}', '', chapter_title)
     chapter_title = re.sub(r'[0-9]+\s+(?:minutes?|hours?|days?)\s+ago', '',
                            chapter_title)
     return chapter_title.strip()
