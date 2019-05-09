@@ -800,6 +800,17 @@ def _main():
                                   get_chapter_text(driver, chapter['link'],
                                                    args.auto_buy)))
 
+    for i in range(1, len(chapter_data_list) - 1):
+        chap_prev = chapter_data_list[i - 1]
+        chap_curr = chapter_data_list[i]
+        chap_next = chapter_data_list[i + 1]
+        if chap_curr[-1] in (chap_prev[-1], chap_next[-1]):
+            print('Something weird happened with the content of chapter {}'.
+                  format(chap_curr[1]) + '\nAttempting to re-download it...'g)
+            chapter = chapter_list_raw[i]
+            chapter_data_list[i][-1] = get_chapter_text(
+                driver, chapter['link'], args.auto_buy)
+
     driver.quit()
 
     # ==========================================================================
