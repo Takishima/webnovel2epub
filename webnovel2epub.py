@@ -341,6 +341,7 @@ def generate_epub(epub_file, novel_title, cover, author, editor, translator,
     utf8_parser = html.HTMLParser(encoding='utf-8')
     for title, num, content in chapter_data_list:
         title_clean = title.strip().replace('\n', ' ')
+        title_clean = re.sub(r'([\*\?])', r'\\\1', title_clean)
         m = re.match(r'^{}\s+(.*)'.format(num), title_clean)
         if m:
             title_clean = m.group(1)
@@ -369,6 +370,7 @@ def generate_epub(epub_file, novel_title, cover, author, editor, translator,
                 break
         if regen_html:
             content = html.tostring(html_tree, pretty_print=True)
+        title_clean = re.sub(r'\\(.)', r'\1', title_clean)
 
         chapter = epub.EpubHtml(title=title_clean,
                                 file_name=os.path.join(
@@ -806,10 +808,11 @@ def _main():
         chap_next = chapter_data_list[i + 1]
         if chap_curr[-1] in (chap_prev[-1], chap_next[-1]):
             print('Something weird happened with the content of chapter {}'.
-                  format(chap_curr[1]) + '\nAttempting to re-download it...'g)
+                  format(chap_curr[1]) + '\nAttempting to re-download it...')
             chapter = chapter_list_raw[i]
-            chapter_data_list[i][-1] = get_chapter_text(
-                driver, chapter['link'], args.auto_buy)
+            chapter_data_list[i] = (chap_curr[0], chap_curr[1],
+                                    get_chapter_text(driver, chapter['link'],
+                                                     args.auto_buy))
 
     driver.quit()
 
