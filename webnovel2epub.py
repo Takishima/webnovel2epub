@@ -344,7 +344,6 @@ def generate_epub(epub_file, novel_title, cover, author, editor, translator,
     utf8_parser = html.HTMLParser(encoding='utf-8')
     for title, num, content in chapter_data_list:
         title_clean = title.strip().replace('\n', ' ')
-        title_clean = re.sub(r'([\*\?])', r'\\\1', title_clean)
         m = re.match(r'^{}\s+(.*)'.format(num), title_clean)
         if m:
             title_clean = m.group(1)
@@ -363,6 +362,7 @@ def generate_epub(epub_file, novel_title, cover, author, editor, translator,
         else:
             regen_html = False
 
+        title_clean = re.sub(r'([\*\?])', r'\\\1', title_clean)
         for p in html_root.xpath('/html/body/p[position()<4]'):
             if p.text and re.match(
                     r'^[Cc]hapter\s+{}\s+-\s+{}'.format(
