@@ -83,7 +83,7 @@ def firefox_default_profile():
 # ==============================================================================
 
 
-def wait_until_url_changes(driver, timeout=10):
+def wait_until_url_changes(driver, timeout=None):
     """
     Makes the driver wait for a URL change with a given timeout
 
@@ -91,11 +91,13 @@ def wait_until_url_changes(driver, timeout=10):
         driver (selenium.webdriver): driver used to get web data
         timeout (int): number of seconds to use as timeout
     """
+    if timeout is None:
+        timeout = 10
     current_url = driver.current_url
     WebDriverWait(driver, timeout).until(EC.url_changes(current_url))
 
 
-def wait_until_id_appears(driver, element_id, timeout=10):
+def wait_until_id_appears(driver, element_id, timeout=None):
     """
     Makes the driver wait for an HTML tag with a particular id appears
 
@@ -104,11 +106,13 @@ def wait_until_id_appears(driver, element_id, timeout=10):
         element_id (str): HTML id to look for
         timeout (int): number of seconds to use as timeout
     """
+    if timeout is None:
+        timeout = 10
     WebDriverWait(driver, timeout).until(
         EC.presence_of_element_located((By.ID, element_id)))
 
 
-def wait_until_class_appears(driver, element_class, timeout=10):
+def wait_until_class_appears(driver, element_class, timeout=None):
     """
     Makes the driver wait for an HTML tag with a particular class appears
 
@@ -117,6 +121,8 @@ def wait_until_class_appears(driver, element_class, timeout=10):
         element_class (str): HTML class to look for
         timeout (int): number of seconds to use as timeout
     """
+    if timeout is None:
+        timeout = 10
     WebDriverWait(driver, timeout).until(
         EC.presence_of_element_located((By.CLASS_NAME, element_class)))
 
@@ -134,7 +140,7 @@ class text_to_change(object):
 def wait_until_class_text_changes(driver,
                                   element_class,
                                   text_before,
-                                  timeout=10):
+                                  timeout=None):
     """
     Makes the driver wait until an HTML tag with a particular class has a 
     change in its text content
@@ -144,11 +150,13 @@ def wait_until_class_text_changes(driver,
         element_class (str): HTML class to look for
         timeout (int): number of seconds to use as timeout
     """
-    WebDriverWait(driver, 10).until(
+    if timeout is None:
+        timeout = 10
+    WebDriverWait(driver, timeout).until(
         text_to_change((By.CLASS_NAME, element_class), text_before))
 
 
-def wait_until_name_appears(driver, element_name, timeout=10):
+def wait_until_name_appears(driver, element_name, timeout=None):
     """
     Makes the driver wait for an HTML tag with a particular name appears
 
@@ -157,7 +165,8 @@ def wait_until_name_appears(driver, element_name, timeout=10):
         element_name (str): HTML tag to look for
         timeout (int): number of seconds to use as timeout
     """
-
+    if timeout is None:
+        timeout = 10
     WebDriverWait(driver, timeout).until(
         EC.presence_of_element_located((By.NAME, element_name)))
 
@@ -262,7 +271,7 @@ def _login_to_webbnovels(driver, username, password):
     driver.switch_to.frame('frameLG')
     with_email = driver.find_element_by_class_name('_e')
     with_email.click()
-    wait_until_name_appears(driver, 'email')
+    wait_until_name_appears(driver, 'email', timeout=10)
 
     email_field = driver.find_element_by_name('email')
     email_field.send_keys(username)
@@ -271,7 +280,7 @@ def _login_to_webbnovels(driver, username, password):
     submit = driver.find_element_by_id('submit')
     submit.click()
     try:
-        wait_until_class_appears(driver, 'j_user_name', timeout=5)
+        wait_until_class_appears(driver, 'j_user_name', timeout=10)
     except TimeoutException:
         # Take care of the security code
         code = driver.find_element_by_name('trustcode')
@@ -279,7 +288,7 @@ def _login_to_webbnovels(driver, username, password):
         code.send_keys(str(verification_code))
         submit = driver.find_element_by_id('checkTrust')
         submit.click()
-        wait_until_class_appears(driver, 'j_user_name')
+        wait_until_class_appears(driver, 'j_user_name', timeout=10)
 
 
 def _login_to_webbnovels_with_cookies(driver, cookie_file):
@@ -343,7 +352,7 @@ def login_to_webbnovels(driver, **kwargs):
 # ==============================================================================
 
 
-def buy_chapter_with_ss(driver, container_class, content_class):
+def buy_chapter_with_ss(driver, container_class, content_class, timeout=None):
     """
     Buy a chapter using Spirit Stones
 

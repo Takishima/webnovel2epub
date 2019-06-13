@@ -264,7 +264,7 @@ def get_novel_data(driver, novel_website, chapter_num_start, chapter_num_end):
         chapter_list
 
 
-def get_chapter_text(driver, url, auto_buy=False):
+def get_chapter_text(driver, url, timeout=None, auto_buy=False):
     """
     Retrieve the text of a chapter located on webnovel.com
 
@@ -283,7 +283,10 @@ def get_chapter_text(driver, url, auto_buy=False):
     if '_lock' in content.get_attribute('class'):
         if not auto_buy:
             raise RuntimeError('Chapter at {} is locked!'.format(url))
-        buy_chapter_with_ss(driver, 'j_contentWrap', 'cha-content')
+        buy_chapter_with_ss(driver,
+                            'j_contentWrap',
+                            'cha-content',
+                            timeout=timeout)
 
         # container = driver.find_element_by_class_name('j_contentWrap')
         # content = container.find_element_by_class_name('cha-content')
@@ -537,6 +540,13 @@ def _main():
                         type=str,
                         metavar='STR',
                         help='Title to save into the EPUB metadata')
+    parser.add_argument(
+        '--with-timeout',
+        type=int,
+        metavar='TIME',
+        default=None,
+        help='Time to wait for various resources to load or actions to ' +
+        'happen. Defaults to 10s.')
     parser.add_argument(
         '--auto-buy',
         action='store_true',
@@ -800,7 +810,8 @@ def _main():
                       unit='chapter')):
         chapter_data_list.append((chapter['title'], chapter_num_list[idx],
                                   get_chapter_text(driver, chapter['link'],
-                                                   args.auto_buy)))
+                                                   args.auto_buy,
+                                                   args.with_timeout)))
 
     for i in range(1, len(chapter_data_list) - 1):
         chap_prev = chapter_data_list[i - 1]
