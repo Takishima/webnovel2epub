@@ -773,59 +773,60 @@ def _main():
 
     print("Getting chapter names, links, cover and metadata...", flush=True)
 
-    chapter_num_start = None
-    chapter_num_end = None
-    if args.with_chapter_end:
-        chapter_num_end = args.with_chapter_end
+    try:
+        chapter_num_start = None
+        chapter_num_end = None
+        if args.with_chapter_end:
+            chapter_num_end = args.with_chapter_end
 
-    if args.with_chapter_start:
-        chapter_num_start = args.with_chapter_start
-    else:
-        chapter_num_start = 1
+        if args.with_chapter_start:
+            chapter_num_start = args.with_chapter_start
+        else:
+            chapter_num_start = 1
 
-    synopsis, cover, author, translator, editor, chapter_list_raw = \
-        get_novel_data(driver, novel_website, chapter_num_start,
-                       chapter_num_end)
+        synopsis, cover, author, translator, editor, chapter_list_raw = \
+            get_novel_data(driver, novel_website, chapter_num_start,
+                           chapter_num_end)
 
-    if chapter_num_end is None or chapter_num_end < 0:
-        chapter_num_end = chapter_num_start + len(chapter_list_raw) - 1
+        if chapter_num_end is None or chapter_num_end < 0:
+            chapter_num_end = chapter_num_start + len(chapter_list_raw) - 1
 
-    if not args.with_chapter_start and not args.with_chapter_end:
-        print("There are currently " + str(len(chapter_list_raw)) +
-              " available")
-        chapter_num_start = int(input("What's the starting chapter number?: "))
-        chapter_num_end = int(input("What's the ending chapter number?: "))
-        if chapter_num_end < 0:
-            chapter_num_end = len(chapter_list_raw)
-        chapter_list_raw = chapter_list_raw[chapter_num_start -
-                                            1:chapter_num_end]
+        if not args.with_chapter_start and not args.with_chapter_end:
+            print("There are currently " + str(len(chapter_list_raw)) +
+                  " available")
+            chapter_num_start = int(input("What's the starting chapter number?: "))
+            chapter_num_end = int(input("What's the ending chapter number?: "))
+            if chapter_num_end < 0:
+                chapter_num_end = len(chapter_list_raw)
+            chapter_list_raw = chapter_list_raw[chapter_num_start -
+                                                1:chapter_num_end]
 
-    chapter_num_list = list(range(chapter_num_start, chapter_num_end + 1))
-    assert len(chapter_num_list) == len(chapter_list_raw)
+        chapter_num_list = list(range(chapter_num_start, chapter_num_end + 1))
+        assert len(chapter_num_list) == len(chapter_list_raw)
 
-    chapter_data_list = []
-    for idx, chapter in enumerate(
-            tqdm.tqdm(chapter_list_raw,
-                      desc='Downloading chapter content',
-                      unit='chapter')):
-        chapter_data_list.append((chapter['title'], chapter_num_list[idx],
-                                  get_chapter_text(driver, chapter['link'],
-                                                   args.auto_buy,
-                                                   args.with_timeout)))
+        chapter_data_list = []
+        for idx, chapter in enumerate(
+                tqdm.tqdm(chapter_list_raw,
+                          desc='Downloading chapter content',
+                          unit='chapter')):
+            chapter_data_list.append((chapter['title'], chapter_num_list[idx],
+                                      get_chapter_text(driver, chapter['link'],
+                                                       auto_buy=args.auto_buy,
+                                                       timeout=args.with_timeout)))
 
-    for i in range(1, len(chapter_data_list) - 1):
-        chap_prev = chapter_data_list[i - 1]
-        chap_curr = chapter_data_list[i]
-        chap_next = chapter_data_list[i + 1]
-        if chap_curr[-1] in (chap_prev[-1], chap_next[-1]):
-            print('Something weird happened with the content of chapter {}'.
-                  format(chap_curr[1]) + '\nAttempting to re-download it...')
-            chapter = chapter_list_raw[i]
-            chapter_data_list[i] = (chap_curr[0], chap_curr[1],
-                                    get_chapter_text(driver, chapter['link'],
-                                                     args.auto_buy))
-
-    driver.quit()
+        for i in range(1, len(chapter_data_list) - 1):
+            chap_prev = chapter_data_list[i - 1]
+            chap_curr = chapter_data_list[i]
+            chap_next = chapter_data_list[i + 1]
+            if chap_curr[-1] in (chap_prev[-1], chap_next[-1]):
+                print('Something weird happened with the content of chapter {}'.
+                      format(chap_curr[1]) + '\nAttempting to re-download it...')
+                chapter = chapter_list_raw[i]
+                chapter_data_list[i] = (chap_curr[0], chap_curr[1],
+                                        get_chapter_text(driver, chapter['link'],
+                                                         args.auto_buy))
+    finally:
+        driver.quit()
 
     # ==========================================================================
 
