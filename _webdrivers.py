@@ -2,7 +2,7 @@ from enum import Enum
 import os
 import re
 import sys
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -283,12 +283,15 @@ def _login_to_webbnovels(driver, username, password):
         wait_until_class_appears(driver, 'j_user_name', timeout=10)
     except TimeoutException:
         # Take care of the security code
-        code = driver.find_element_by_name('trustcode')
-        verification_code = input("Enter verification code: ")
-        code.send_keys(str(verification_code))
-        submit = driver.find_element_by_id('checkTrust')
-        submit.click()
-        wait_until_class_appears(driver, 'j_user_name', timeout=10)
+        try:
+            code = driver.find_element_by_name('trustcode')
+            verification_code = input("Enter verification code: ")
+            code.send_keys(str(verification_code))
+            submit = driver.find_element_by_id('checkTrust')
+            submit.click()
+            wait_until_class_appears(driver, 'j_user_name', timeout=10)
+        except NoSuchElementException:
+            raise RuntimeError('Unable to login and to find trust code')
 
 
 def _login_to_webbnovels_with_cookies(driver, cookie_file):
