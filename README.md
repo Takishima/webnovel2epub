@@ -28,7 +28,7 @@ It is also possible to use `geckodriver` (ie. Firefox), although for now, only t
 This script was developed while using Python 3.7. It should however also work with older Python 3 versions.
 Also, you'll need a modified version of ebooklib, which you can find [here](https://github.com/Takishima/ebooklib), selenium and tqdm. To get them just open a terminal and run:
 ```
-pip install git+https://github.com/Takishima/ebooklib.git@master selenium tqdm
+pip install git+https://github.com/Takishima/ebooklib.git@master selenium tqdm pillow
 ```
 
 Note that on some Linux installations, you might need to install `libxml2-dev` and `libxmlsec1-dev`. E.g.
