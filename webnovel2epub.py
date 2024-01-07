@@ -15,6 +15,8 @@ from ebooklib import epub
 from _webdrivers import (WebDriverType, initialize_driver, login_to_webbnovels,
                          chrome_default_user_data, firefox_default_profile,
                          buy_chapter_with_ss)
+from selenium.webdriver.common.by import By
+
 import tqdm
 
 # ==============================================================================
@@ -84,14 +86,14 @@ def get_novel_list_from_category(driver, category_website, novel_title_filter):
     """
 
     driver.get(category_website)
-    book_list = driver.find_element_by_class_name(
-        'j_bookList').find_element_by_tag_name('ul')
-    book_items = book_list.find_elements_by_tag_name('li')
+    book_list = driver.find_element(By.CLASS_NAME, 'j_bookList')\
+                       .find_element(By.TAG_NAME, 'ul')
+    book_items = book_list.find_element(By.TAG_NAME, 'li')
     result = [{
         'link':
-        book.find_element_by_tag_name('a').get_attribute("href"),
+        book.find_element(By.TAG_NAME, 'a').get_attribute("href"),
         'title':
-        book.find_element_by_tag_name('a').get_attribute("title")
+        book.find_element(By.TAG_NAME, 'a').get_attribute("title")
     } for book in book_items]
 
     result = [
@@ -125,7 +127,7 @@ def get_novel_list_from_search(driver, novel_title_filter):
 
     driver.get(_root_url + '/search')
 
-    search = driver.find_element_by_id('search')
+    search = driver.find_element(By.ID, 'search')
     if novel_title_filter:
         terms = novel_title_filter
     else:
@@ -134,18 +136,18 @@ def get_novel_list_from_search(driver, novel_title_filter):
     search.send_keys(terms)
     search.submit()
 
-    search = driver.find_element_by_id('search')
+    search = driver.find_element(By.ID, 'search')
     assert search.get_attribute('value') == terms
 
-    book_list = driver.find_element_by_class_name(
-        'j_list_container').find_element_by_tag_name('ul')
-    book_items = book_list.find_elements_by_tag_name('li')
+    book_list = driver.find_element(By.CLASS_NAME, 
+        'j_list_container').find_element(By.TAG_NAME, 'ul')
+    book_items = book_list.find_element(By.TAG_NAME, 'li')
 
     result = [{
         'link':
-        book.find_element_by_tag_name('a').get_attribute("href"),
+        book.find_element(By.TAG_NAME, 'a').get_attribute("href"),
         'title':
-        book.find_element_by_tag_name('a').get_attribute("title")
+        book.find_element(By.TAG_NAME, 'a').get_attribute("title")
     } for book in book_items]
 
     if len(result) == 1:
@@ -206,7 +208,7 @@ def get_novel_data(driver, novel_website, chapter_num_start, chapter_num_end):
         with two keys: 'link' (URL) and 'title' (title of chapter as a string)
     """
     driver.get(novel_website)
-    img = driver.find_element_by_xpath('//i[@class="g_thumb"]/img[2]')
+    img = driver.find_element(By.XPATH, '//i[@class="g_thumb"]/img[2]')
 
     cover_name = None
     cover_data = None
@@ -219,8 +221,8 @@ def get_novel_data(driver, novel_website, chapter_num_start, chapter_num_end):
     except urllib.URLError:
         pass
 
-    synopsis_anchor = driver.find_element_by_id('about')
-    synopsis = synopsis_anchor.find_element_by_tag_name('p').text
+    synopsis_anchor = driver.find_element(By.ID, 'about')
+    synopsis = synopsis_anchor.find_element(By.TAG_NAME, 'p').text
 
     author = None
     translator = None
@@ -236,7 +238,7 @@ def get_novel_data(driver, novel_website, chapter_num_start, chapter_num_end):
         if element.text.lower().startswith('editor'):
             editor = element_list.pop().text
 
-    popup = driver.find_element_by_class_name('j_show_contents')
+    popup = driver.find_element(By.CLASS_NAME, 'j_show_contents')
     popup.click()
     time.sleep(0.5)
 
@@ -277,8 +279,8 @@ def get_chapter_text(driver, url, timeout=None, auto_buy=False):
     """
     driver.get(url)
 
-    container = driver.find_element_by_class_name('j_contentWrap')
-    content = container.find_element_by_class_name('cha-content')
+    container = driver.find_element(By.CLASS_NAME, 'j_contentWrap')
+    content = container.find_element(By.CLASS_NAME, 'cha-content')
 
     if '_lock' in content.get_attribute('class'):
         if not auto_buy:
@@ -288,12 +290,12 @@ def get_chapter_text(driver, url, timeout=None, auto_buy=False):
                             'cha-content',
                             timeout=timeout)
 
-        # container = driver.find_element_by_class_name('j_contentWrap')
-        # content = container.find_element_by_class_name('cha-content')
+        # container = driver.find_element(By.CLASS_NAME, 'j_contentWrap')
+        # content = container.find_element(By.CLASS_NAME, 'cha-content')
 
-    anchor = content.find_element_by_class_name('cha-words')
+    anchor = content.find_element(By.CLASS_NAME, 'cha-words')
     text = ''
-    for element in anchor.find_elements_by_tag_name('p'):
+    for element in anchor.find_element(By.TAG_NAME, 'p'):
         text += '<p>{}</p>'.format(element.text)
     return text
 
